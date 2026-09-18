@@ -218,3 +218,48 @@ test("設定タブの「自動スケジュール」を開くと、今日の案�
   assert.deepEqual(errors, []);
   await context.close();
 });
+
+test("GitHub Pages のように階層の途中へ置いても、そのまま動く", options, async () => {
+  // プロジェクトページは https://<名前>.github.io/study-check/ に置かれる。
+  // 根元を前提にした絶対パスが1つでもあると、ここで落ちる。
+  await server.close();
+  server = await startTestServer({ basePath: "study-check" });
+
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+
+  await page.goto(server.appUrl);
+  await page.waitForFunction(() => document.querySelectorAll(".tabbar button").length > 0);
+  // 問題マスタ（data/questions.json）も、この階層から読めている。
+  await page.waitForFunction(async () => {
+    const api = await import("./src/api.js");
+    return (await api.listQuestions()).length > 0;
+  }, null, { timeout: 15000 });
+
+  // Service Worker の担当範囲が、アプリの置かれた階層になっている。
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  const scope = await page.evaluate(async () => (await navigator.serviceWorker.ready).scope);
+  assert.match(scope, /\/study-check\/$/, `Service Worker の scope が階層に合っていない: ${scope}`);
+
+  // 全タブが組み上がる。
+  for (const tab of ["記録", "スケジュール", "設定"]) {
+    await page.locator(".tabbar button", { hasText: tab }).click();
+    await page.waitForTimeout(300);
+  }
+
+  // この階層のまま、オフラインでも起動できる。
+  await page.waitForFunction(async () => (await caches.keys()).length > 0);
+  server.goOffline();
+  try {
+    await page.reload();
+    await page.waitForFunction(() => document.querySelectorAll(".tabbar button").length > 0, null, { timeout: 15000 });
+  } finally {
+    server.goOnline();
+  }
+
+  assert.deepEqual(errors.filter((text) => !/Failed to fetch|net::ERR|504/.test(text)), []);
+  await context.close();
+});

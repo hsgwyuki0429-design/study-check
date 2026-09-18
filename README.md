@@ -8,6 +8,31 @@
 
 ## 使い方
 
+### GitHub Pages で開く
+
+`main` に push すると、テストが通ったときだけ GitHub Pages へ自動で配られる
+（`.github/workflows/pages.yml`）。
+
+```
+https://<GitHubの名前>.github.io/study-check/
+```
+
+**はじめに一度だけ**、GitHub の
+リポジトリ → **Settings** → **Pages** → **Build and deployment** → **Source** を
+**「GitHub Actions」** に切り替えること。これを切り替えないと、workflow は
+デプロイのところで失敗する（テストとビルドまでは通る）。
+
+切り替えたあと、Actions タブの `pages` を「Run workflow」で1回動かせば配られる。
+以後は `main` へ push するたびに更新される。
+
+スマホのブラウザでそのURLを開き、**ホーム画面に追加**すればアプリとして使える。
+一度開けばオフラインでも起動する。
+
+友達に使ってもらうときは、このURLを渡すだけでよい。学習データは**それぞれの端末の中だけ**に
+入るので、同じURLを開いても他人の記録は見えないし、こちらからも見えない。
+
+### 手元で動かす
+
 ビルド不要。静的ファイルをそのまま配信すれば動く。
 
 ```sh
@@ -57,11 +82,12 @@ python3 -m http.server 8000
 
 ## データの置き場所
 
-学習データはすべてこの端末の IndexedDB にある。外へ送る仕組みは持たない。
+学習データはすべて**その端末のブラウザの中（IndexedDB）**にある。外へ送る仕組みは持たない。
 
-- サーバーもアカウントも無い
-- 通信しないので、常にオフラインで動く
+- サーバーもアカウントも無い。GitHub Pages は置き場所を貸しているだけで、記録は届かない
+- 同じURLを開いても、記録は人ごと・端末ごとに分かれている
 - 端末どうしの同期は無い。機種を変えるときは 設定 → バックアップ で JSON を書き出す
+- ブラウザのデータを消すと学習記録も消える。大事なら先に書き出しておく
 
 ## タブ構成
 
@@ -111,6 +137,7 @@ python3 -m http.server 8000
 | `test/` | 判定のしかたの自動テスト（`npm test`） |
 | `test/e2e/` | 実ブラウザでの通し確認（`npm run test:e2e`） |
 | `.github/workflows/test.yml` | push と Pull Request のたびにテストを走らせる |
+| `.github/workflows/pages.yml` | `main` への push で GitHub Pages へ配る（テストが通ったときだけ） |
 
 ## 予定と実績の考え方
 

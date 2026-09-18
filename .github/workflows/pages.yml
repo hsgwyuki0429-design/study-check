@@ -1,0 +1,76 @@
+# main への push で、GitHub Pages へ配る。
+#
+# 使い始めるときに一度だけ、GitHub の
+#   リポジトリ → Settings → Pages → Build and deployment → Source
+# を「GitHub Actions」にしておくこと。これを切り替えないと、この workflow は
+# デプロイのところで失敗する（ビルドまでは通る）。
+#
+# ビルドは要らない。静的ファイルをそのまま置くだけのアプリなので、
+# ここでやるのは「配るものだけを集める」ことと「テストが通っているか確かめる」ことだけ。
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Pages へ配るのに要る権限。
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 続けて push されたときは、最後の1つだけを配る。
+# 配っている途中で止めると中途半端な状態が残るため、走っているものは止めない。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # 壊れたものを配らない。テストが落ちたらここで止まる。
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - name: 問題マスタが tools/source と一致しているか
+        run: npm run build:questions -- --check
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # 配るのはアプリ本体だけ。テスト・元データ・説明書きは置かない。
+      # ここに並べたものが足りているかは test/pages.test.mjs が見張っている
+      # （1つ足りないと、その画面だけ開けないアプリが配られてしまう）。
+      - name: 配るものを集める
+        run: |
+          mkdir -p _site
+          cp index.html styles.css sw.js manifest.webmanifest _site/
+          cp -r src data icons _site/
+          # Jekyll に通さない。通すと「_」で始まる名前が無視されるなど、
+          # 素のファイルをそのまま配るつもりの作りと食い違う。
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

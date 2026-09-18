@@ -3,6 +3,10 @@
 // このアプリにはサーバーが要らない。学習データはすべて端末の中にある。
 // ここで立てるのは、ブラウザに index.html と src/*.js を読ませるためだけのもので、
 // 「オフラインにする」＝配るのをやめる、という意味になる。
+//
+// basePath を渡すと、その下に置いたものとして配る。GitHub Pages のプロジェクトページは
+// https://<名前>.github.io/study-check/ のように階層の途中に置かれるので、
+// 「根元に置いたときだけ動く」作りになっていないかを、ここで実際に確かめられる。
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -29,8 +33,10 @@ export async function loadPlaywright() {
   }
 }
 
-export async function startTestServer() {
+export async function startTestServer({ basePath = "" } = {}) {
   let offline = false;
+  // "/study-check" のような形に整える（末尾のスラッシュは付けない）。
+  const base = basePath ? `/${basePath.replace(/^\/+|\/+$/g, "")}` : "";
 
   const server = createServer(async (request, response) => {
     if (offline) {
@@ -38,7 +44,12 @@ export async function startTestServer() {
       return;
     }
     const url = new URL(request.url, "http://localhost");
-    const relative = url.pathname === "/" ? "/index.html" : url.pathname;
+    if (base && !url.pathname.startsWith(`${base}/`) && url.pathname !== base) {
+      response.writeHead(404).end();
+      return;
+    }
+    const withoutBase = base ? url.pathname.slice(base.length) || "/" : url.pathname;
+    const relative = withoutBase === "/" ? "/index.html" : withoutBase;
     // ルートの外へは出さない。
     const file = path.join(root, path.normalize(relative).replace(/^(\.\.[/\\])+/, ""));
     if (!file.startsWith(root)) {
@@ -59,6 +70,8 @@ export async function startTestServer() {
 
   return {
     origin: `http://127.0.0.1:${port}`,
+    /** アプリの入口。basePath を渡していればその下になる。 */
+    appUrl: `http://127.0.0.1:${port}${base}/`,
     goOffline() { offline = true; },
     goOnline() { offline = false; },
     close: () => new Promise((resolve) => server.close(resolve)),

@@ -1,0 +1,13 @@
+{
+  "name": "study-check",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:e2e": "node --test test/e2e/*.e2e.mjs",
+    "test:all": "npm test && npm run test:e2e",
+    "start": "python3 -m http.server 8000",
+    "build:questions": "node tools/build-questions.mjs"
+  }
+}

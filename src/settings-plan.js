@@ -24,6 +24,12 @@ const minutesInput = (value, onChange, { placeholder = '未設定' } = {}) => {
   return input;
 };
 
+/** 使い方案内が指す先に、目印を付ける。見た目は変えない。 */
+const tourTarget = (name, node) => {
+  node.dataset.tour = name;
+  return node;
+};
+
 const button = (label, onClick, cls = 'btn') => {
   const node = el('button', cls, label);
   node.onclick = onClick;
@@ -101,7 +107,7 @@ async function goalForm(list, rerender) {
     section: draft.section || undefined,
   });
 
-  const form = el('div', 'plan-form');
+  const form = tourTarget('goal-form', el('div', 'plan-form'));
   form.append(
     el('div', 'row-sub', '目標の内容'), titleInput,
     el('div', 'row-sub', '期限（空なら期限なし）'), deadlineInput,
@@ -113,7 +119,7 @@ async function goalForm(list, rerender) {
   );
   const actions = el('div', 'setting-actions');
   actions.append(
-    button('この内容で作成', async () => {
+    tourTarget('goal-submit', button('この内容で作成', async () => {
       if (!draft.title.trim()) {
         alert('目標の内容を入れてください');
         return;
@@ -133,7 +139,7 @@ async function goalForm(list, rerender) {
       });
       newGoal = null;
       rerender();
-    }, 'btn btn-primary'),
+    }, 'btn btn-primary')),
     button('やめる', () => {
       newGoal = null;
       rerender();
@@ -184,10 +190,10 @@ export async function renderGoalCard(list, rerender) {
     await goalForm(list, rerender);
   } else {
     const actions = el('div', 'setting-actions');
-    actions.append(button('目標を追加', () => {
+    actions.append(tourTarget('goal-add', button('目標を追加', () => {
       newGoal = { title: '', deadline: '', chapter: '', section: '', completionType: 'attempt', priority: 3 };
       rerender();
-    }));
+    })));
     list.append(actions);
   }
 }
@@ -221,7 +227,7 @@ export async function renderAvailabilityCard(list, rerender) {
     grid.append(cell);
   }
   list.append(el('div', 'row-sub row-indent', '曜日ごとの標準（分）。空欄は「未設定」で、0分とは違います。'));
-  list.append(grid);
+  list.append(tourTarget('weekday-grid', grid));
 
   // 今日の残り。
   const remaining = availability.todayRemaining && availability.todayRemaining.date === today

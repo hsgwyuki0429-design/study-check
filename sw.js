@@ -1,6 +1,6 @@
 // オフラインでも起動できるよう、アプリシェルをキャッシュする。
 // 学習データは IndexedDB にあるため、Service Worker はデータを扱わない。
-const CACHE = 'study-check-v1';
+const CACHE = 'study-check-v2';
 const SHELL = [
   './',
   './index.html',
@@ -35,6 +35,8 @@ const SHELL = [
   './src/squares.js',
   './src/state.js',
   './src/study-timing.js',
+  './src/tour-runner.js',
+  './src/tour.js',
   './src/ui.js',
   './data/questions.json',
   './icons/icon.svg',

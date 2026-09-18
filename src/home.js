@@ -625,6 +625,8 @@ function idlePanel(panel) {
   swipeable(panel, tabs.map(([v]) => v), state.idleTab, selectTab);
 
   const list = el('div', 'list');
+  // 使い方案内が「ここに今日の分が並ぶ」と指す先。
+  list.dataset.tour = 'home-todo';
   if (state.idleTab === 'todo') {
     if (!todo.length) list.append(emptyState('今日のタスクはありません'));
     for (const { task, pendingIds, item } of todo) {

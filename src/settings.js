@@ -5,11 +5,12 @@
 
 import * as api from './api.js';
 import { state, render } from './state.js';
-import { el, row } from './ui.js';
+import { el, row, fmtDate } from './ui.js';
 import { renderAvailabilityCard, renderGoalCard } from './settings-plan.js';
 import { renderAutoPlanCard } from './settings-auto-plan.js';
 import { helpPanel } from './squares.js';
 import { countDemoStudyData, removeDemoStudyData, loadQuestionMaster } from './seed.js';
+import { openTour } from './tour-runner.js';
 
 async function update(patch) {
   state.settings = await api.saveSettings({ ...state.settings, ...patch });
@@ -58,6 +59,7 @@ async function section(screen, { id, title, sub, build }) {
   const open = state.settingsOpen === id;
   const toggle = el('button', 'section-toggle');
   toggle.setAttribute('aria-expanded', String(open));
+  toggle.dataset.tour = `section-${id}`;
   const main = el('div', 'row-main');
   main.append(el('div', 'row-title', title));
   if (sub) main.append(el('div', 'row-sub', sub));
@@ -224,6 +226,40 @@ async function buildDangerZone(list) {
   list.append(wrap);
 }
 
+/**
+ * 使い方の案内をもう一度出す。
+ *
+ * 案内は本物の画面を指すので、設定タブを開いたままでは始められない。
+ * 押したらホームへ戻してから始める（案内の1歩目がホームから始まるため）。
+ */
+async function buildUsage(list) {
+  const tour = await api.getTourState();
+  list.append(row({
+    title: '本物の画面で案内します',
+    sub: '「まずここを押す」と指したところを実際に押すと、次へ進みます。'
+      + ' 途中でやめても、ここからまた呼べます。',
+  }));
+  if (tour.finishedAt) {
+    list.append(row({
+      title: '前に最後まで見ています',
+      sub: fmtDate(tour.finishedAt.slice(0, 10)),
+      classes: ['row-indent'],
+    }));
+  }
+
+  const start = el('button', 'btn btn-primary', '使い方をもう一度見る');
+  start.onclick = () => {
+    // 案内はホームから始まるので、そこへ戻してから出す。
+    state.tab = 'home';
+    state.settingsOpen = null;
+    render();
+    openTour({ onFinish: () => render() });
+  };
+  const wrap = el('div', 'setting-actions');
+  wrap.append(start);
+  list.append(wrap);
+}
+
 /* ------------------------------------------------------------------ */
 
 export async function renderSettings(screen) {
@@ -288,6 +324,13 @@ export async function renderSettings(screen) {
     title: 'データの削除',
     sub: '学習データをすべて消す（元に戻せません）',
     build: buildDangerZone,
+  });
+
+  await section(screen, {
+    id: 'usage',
+    title: '使い方',
+    sub: 'はじめの案内を、もう一度見る',
+    build: buildUsage,
   });
 
   await section(screen, {

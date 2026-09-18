@@ -977,6 +977,24 @@ export const DEFAULT_SETTINGS = {
   theme: 'auto',              // 'auto' | 'light' | 'dark'
 };
 
+/* ------------------------------------------------------------------ */
+/* 使い方案内                                                          */
+/* ------------------------------------------------------------------ */
+
+export const TOUR_KEY = 'tour';
+
+/** 使い方案内の状態。はじめて開いたかどうかを見る。 */
+export async function getTourState() {
+  const row = await idb.get(STORES.meta, TOUR_KEY);
+  return { seen: false, finishedAt: null, ...(row?.value ?? {}) };
+}
+
+export async function saveTourState(patch) {
+  const next = { ...(await getTourState()), ...patch };
+  await idb.put(STORES.meta, { key: TOUR_KEY, value: next });
+  return next;
+}
+
 export async function getSettings() {
   const row = await idb.get(STORES.meta, 'settings');
   return { ...DEFAULT_SETTINGS, ...(row?.value ?? {}) };

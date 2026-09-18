@@ -10,6 +10,7 @@ import { renderRecords } from './records.js';
 import { renderSchedule } from './schedule.js';
 import { renderSettings, applyTheme } from './settings.js';
 import { getAutoPlanMeta, runAutoPlan } from './auto-plan-runner.js';
+import { runTourIfFirstTime } from './tour-runner.js';
 
 const TABS = [
   ['home', 'ホーム', '■'],
@@ -82,6 +83,8 @@ function buildTabBar() {
     const b = document.createElement('button');
     b.setAttribute('role', 'tab');
     b.dataset.tab = name;
+    // 使い方案内が指す先。画面の組み直しをまたいでも同じ場所を指せるようにする。
+    b.dataset.tour = `tab-${name}`;
     const m = document.createElement('span');
     m.className = 'tab-mark';
     m.setAttribute('aria-hidden', 'true');
@@ -197,7 +200,11 @@ async function boot() {
   // 開いた時点で、いちばん必要な問題が並んでいる状態にする（企画書20章）。
   // 同じ状態で何度開いても、同じ案は一度しか当たらない（企画書17章）。
   // うまくいかなくても学習そのものは止めない。
-  autoPlanOnOpen();
+  await autoPlanOnOpen();
+
+  // はじめて開いた人には、本物の画面の上で使い方を案内する。
+  // 予定を組んだあとに出す（「ここに今日の分が並ぶ」を実物で見せるため）。
+  runTourIfFirstTime();
 }
 
 async function autoPlanOnOpen() {

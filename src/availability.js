@@ -84,7 +84,7 @@ export function normalizeAvailability(raw, { now = Date.now() } = {}) {
   };
 }
 
-const weekdayKeyOf = (dateKey) => {
+export const weekdayKeyOf = (dateKey) => {
   const ms = Date.parse(`${dateKey}T00:00:00Z`);
   if (!Number.isFinite(ms)) return null;
   return WEEKDAY_KEYS[new Date(ms).getUTCDay()];

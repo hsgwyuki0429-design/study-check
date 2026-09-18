@@ -952,3 +952,139 @@ button:active { filter: brightness(.94); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ------------------------------------------------------------------ */
+/* はじめて開いたときの使い方案内                                      */
+/* ------------------------------------------------------------------ */
+
+/* 本物の画面の上に重ねる。穴の部分はそのまま押せるようにしたいので、
+   入れ物そのものは操作を受け取らない。 */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* 暗くするのは、この要素の外側に伸ばした影である。
+   こうすると穴の中だけが明るく、しかも素通しになる。 */
+.tour-hole {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.62);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  pointer-events: none;
+  transition: top .18s ease, left .18s ease, width .18s ease, height .18s ease;
+}
+
+/* 指す先が無いときは、画面全体を暗くしてカードだけ見せる。 */
+.tour[data-placement='center'] .tour-hole {
+  top: 50%;
+  left: 50%;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.62);
+}
+
+.tour-card {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  max-width: 420px;
+  margin-inline: auto;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+}
+
+.tour[data-placement='center'] .tour-card {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tour-count {
+  font-size: 12px;
+  color: var(--fg-faint);
+  margin-bottom: 4px;
+}
+
+.tour-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.tour-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--fg-sub);
+}
+
+.tour-body p { margin: 0 0 8px; }
+.tour-body p:last-child { margin-bottom: 0; }
+
+/* 「押すと次へ進みます」の待ち表示。点滅ではなく、静かに息をする程度にする。 */
+.tour-wait {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  animation: tour-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes tour-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.tour-skip,
+.tour-next {
+  min-height: var(--tap);
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.tour-skip {
+  background: none;
+  border: none;
+  color: var(--fg-sub);
+  padding: 0 4px;
+}
+
+.tour-next {
+  background: var(--accent);
+  color: var(--on-accent);
+  border: none;
+  padding: 0 20px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+/* 動きを減らす設定のときは、animation と transition を止める。 */
+@media (prefers-reduced-motion: reduce) {
+  .tour-hole { transition: none; }
+  .tour-wait { animation: none; }
+}
+
+/* 実際のデータを見て足す一言（予定が空のときの理由など）。 */
+.tour-note {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: 13px;
+  line-height: 1.6;
+}

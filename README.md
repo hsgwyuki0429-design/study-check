@@ -26,7 +26,18 @@ https://<GitHubの名前>.github.io/study-check/
 以後は `main` へ push するたびに更新される。
 
 スマホのブラウザでそのURLを開き、**ホーム画面に追加**すればアプリとして使える。
-一度開けばオフラインでも起動する。
+名前は「Study Check」、アイコンは青地に白いチェックが出る。一度開けばオフラインでも起動する。
+
+アイコンは `icons/icon.svg` が元で、そこから PNG を作ってある。
+地は縁まで塗ってあり、チェックは中心から一辺の80%の円の中に収めてある
+（ホーム画面では端末ごとに違う形——丸・角丸・しずく——で切り抜かれるため、
+透明な余白があると背景が抜け、端に寄せると欠ける）。
+足りているかは `test/manifest.test.mjs` が見張っている。
+
+```sh
+# icons/icon.svg を直したら、PNG を作り直す
+npm run build:icons
+```
 
 友達に使ってもらうときは、このURLを渡すだけでよい。学習データは**それぞれの端末の中だけ**に
 入るので、同じURLを開いても他人の記録は見えないし、こちらからも見えない。
@@ -171,6 +182,8 @@ python3 -m http.server 8000
 | `src/seed.js` | 初期データ |
 | `data/questions.json` | 問題マスタの実体（青チャート数学I+A 593問のメタデータ） |
 | `tools/build-questions.mjs` | `tools/source/` から問題マスタを生成・検証する |
+| `tools/build-icons.mjs` | `icons/icon.svg` からホーム画面用の PNG を作る |
+| `icons/` | アプリのアイコン（SVG が元。PNG は作ったもの） |
 | `sw.js` | アプリシェルのキャッシュ（オフライン起動）。`src/*.js` を全部載せる |
 | `test/` | 判定のしかたの自動テスト（`npm test`） |
 | `test/e2e/` | 実ブラウザでの通し確認（`npm run test:e2e`） |

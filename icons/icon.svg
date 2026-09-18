@@ -1,7 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Study Check">
+  <!-- 地は縁まで塗る。ホーム画面では、端末ごとに違う形（丸・角丸・しずく）で
+       切り抜かれるため、透明な余白があると背景が抜けて見えてしまう。 -->
   <rect width="512" height="512" fill="#2563eb"/>
-  <rect x="128" y="112" width="256" height="288" fill="#ffffff"/>
-  <rect x="168" y="176" width="176" height="16" fill="#2563eb"/>
-  <rect x="168" y="240" width="176" height="16" fill="#2563eb"/>
-  <rect x="168" y="304" width="112" height="16" fill="#2563eb"/>
+  <!-- チェックは中心から半径204.8（＝一辺の80%の円）の中に収めてある。
+       どの形で切り抜かれても欠けない。 -->
+  <path d="M148 268 L222 342 L364 176" fill="none" stroke="#ffffff"
+        stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

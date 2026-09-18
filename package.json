@@ -8,6 +8,7 @@
     "test:e2e": "node --test test/e2e/*.e2e.mjs",
     "test:all": "npm test && npm run test:e2e",
     "start": "python3 -m http.server 8000",
-    "build:questions": "node tools/build-questions.mjs"
+    "build:questions": "node tools/build-questions.mjs",
+    "build:icons": "node tools/build-icons.mjs"
   }
 }

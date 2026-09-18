@@ -331,3 +331,66 @@ test("同じ配信元に置いた別のアプリのデータを、持ち込ま�
   assert.deepEqual(errors, []);
   await context.close();
 });
+
+test("ホーム画面に追加するのに要るものが、実際に読み込める", options, async () => {
+  // GitHub Pages と同じ階層（/study-check/）で確かめる。
+  // マニフェストやアイコンを根元からの絶対パスで書いていると、ここで落ちる。
+  await server.close();
+  server = await startTestServer({ basePath: "study-check" });
+
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+
+  await page.goto(server.appUrl);
+  await page.waitForFunction(() => document.querySelectorAll(".tabbar button").length > 0);
+
+  // ブラウザがマニフェストをたどれる。
+  const manifestUrl = await page.evaluate(() =>
+    document.querySelector('link[rel="manifest"]')?.href ?? null);
+  assert.ok(manifestUrl?.includes("/study-check/"), `置き場所の外を指している: ${manifestUrl}`);
+
+  const manifest = await page.evaluate(async (url) => {
+    const response = await fetch(url);
+    return { status: response.status, body: await response.json() };
+  }, manifestUrl);
+  assert.equal(manifest.status, 200);
+  assert.equal(manifest.body.name, "Study Check");
+
+  // アイコンが1つ残らず取れる（白い四角になる原因をここで潰す）。
+  const icons = await page.evaluate(async (url) => {
+    const base = new URL(url);
+    const body = await (await fetch(url)).json();
+    const results = [];
+    for (const icon of body.icons) {
+      const resolved = new URL(icon.src, base).href;
+      const response = await fetch(resolved);
+      results.push({ src: icon.src, url: resolved, status: response.status });
+    }
+    return results;
+  }, manifestUrl);
+
+  for (const icon of icons) {
+    assert.equal(icon.status, 200, `${icon.src} が取れない (${icon.status})`);
+    assert.ok(icon.url.includes("/study-check/"), `${icon.src} が置き場所の外を指している`);
+  }
+
+  // iOS むけのアイコンも取れる。
+  const apple = await page.evaluate(async () => {
+    const href = document.querySelector('link[rel="apple-touch-icon"]')?.href;
+    if (!href) return null;
+    return { href, status: (await fetch(href)).status };
+  });
+  assert.ok(apple, "apple-touch-icon が無い");
+  assert.equal(apple.status, 200, "apple-touch-icon が取れない");
+
+  // ホーム画面での名前。
+  const title = await page.evaluate(() =>
+    document.querySelector('meta[name="apple-mobile-web-app-title"]')?.content);
+  assert.equal(title, "Study Check");
+
+  assert.deepEqual(errors, []);
+  await context.close();
+});

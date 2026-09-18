@@ -1,6 +1,6 @@
 // オフラインでも起動できるよう、アプリシェルをキャッシュする。
 // 学習データは IndexedDB にあるため、Service Worker はデータを扱わない。
-const CACHE = 'study-check-v2';
+const CACHE = 'study-check-v3';
 const SHELL = [
   './',
   './index.html',
@@ -40,6 +40,9 @@ const SHELL = [
   './src/ui.js',
   './data/questions.json',
   './icons/icon.svg',
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
 ];
 
 self.addEventListener('install', (e) => {

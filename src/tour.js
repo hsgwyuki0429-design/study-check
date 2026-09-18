@@ -17,42 +17,44 @@ import { el } from './ui.js';
 /** 案内をもう出さない、を覚えておく場所。 */
 export const TOUR_KEY = 'tour';
 
-/** 案内の手順。上から順に進む。 */
+/**
+ * 案内の手順。上から順に進む。
+ *
+ * 本文は短くする。案内は読み物ではなく、手を動かしてもらうためのものである。
+ * 長い説明はここに置かず、設定 → 使い方 に回す（そこでいつでも読める）。
+ */
 export const STEPS = Object.freeze([
   {
     id: 'welcome',
-    title: 'Study Check へようこそ',
-    body: '青チャートの学習を記録して、その日にやる問題を自動で決めるアプリです。'
-      + '最初に「目標」と「学習に使える時間」を決めると、あとは開くだけで今日の分が並びます。'
-      + '\n\n実際に画面を触りながら、ひととおり設定してみましょう。',
-    next: 'やってみる',
+    title: 'ようこそ',
+    body: '今日やる問題を、自動で決めるアプリです。\n\n目標と、使える時間だけ決めましょう。',
+    next: 'はじめる',
   },
   {
     id: 'open-settings',
     title: 'まず「設定」を押す',
-    body: '目標と時間は、設定タブで決めます。',
+    body: '',
     target: '[data-tour="tab-settings"]',
     await: 'click',
   },
   {
     id: 'open-goals',
     title: '「目標」を押して開く',
-    body: '何を・いつまでに・どこまでやるかを決めます。',
+    body: '',
     target: '[data-tour="section-goals"]',
     await: 'click',
   },
   {
     id: 'add-goal',
     title: '「目標を追加」を押す',
-    body: 'まだ目標がないので、ひとつ作ってみましょう。',
+    body: '',
     target: '[data-tour="goal-add"]',
     await: 'click',
   },
   {
     id: 'fill-goal',
-    title: '中身を決めて、いちばん下の「この内容で作成」',
-    body: '目標の名前と、対象にする範囲（章や単元）を選びます。範囲を選ばなければ、全部が対象になります。'
-      + '\n\n優先順位は「どれから進めるか」の順番です。数が小さいほど先に進めます。',
+    title: '名前と範囲を決めて、作成する',
+    body: '単元は、いくつでもえらべます。',
     target: '[data-tour="goal-form"]',
     await: 'state',
     hint: '作成すると次へ進みます',
@@ -60,15 +62,14 @@ export const STEPS = Object.freeze([
   {
     id: 'open-availability',
     title: '次は「学習に使える時間」',
-    body: '1日に何分使えるかが分からないと、どれだけ出してよいか決められません。',
+    body: '',
     target: '[data-tour="section-availability"]',
     await: 'click',
   },
   {
     id: 'set-minutes',
-    title: '曜日ごとに、使える分を入れる',
-    body: 'ひとつでも入れれば先へ進めます。空欄は「未設定」で、0分とは違う扱いです。'
-      + '\n\n未設定の日には、予定を置きません。',
+    title: '1日に使える分を入れる',
+    body: 'ひとつ入れれば、全部の曜日に使われます。\n\nできない曜日は 0 と入れてください。',
     target: '[data-tour="weekday-grid"]',
     await: 'state',
     hint: '入れると次へ進みます',
@@ -76,33 +77,17 @@ export const STEPS = Object.freeze([
   {
     id: 'back-home',
     title: '「ホーム」に戻る',
-    body: 'これで材料がそろいました。今日の分がどうなったか見てみましょう。',
+    body: '',
     target: '[data-tour="tab-home"]',
     await: 'click',
   },
   {
     id: 'todo',
     title: 'ここに今日やる問題が並ぶ',
-    body: '弱点の復習を先に、そのあと新しい問題を、使える時間に収まるだけ置いています。'
-      + '\n\n開くたびに組み直すので、毎日「何をやるか」を自分で考えなくてすみます。',
+    body: '押すと計測が始まり、終わったら出来を5つから選びます。'
+      + '\n\nあとは開くだけ。くわしい説明は 設定 → 使い方 にあります。',
     target: '[data-tour="home-todo"]',
-    next: '次へ',
-  },
-  {
-    id: 'start',
-    title: '問題を押すと計測が始まる',
-    body: '解き終わったら、5つのボタンからその日の出来を選びます。'
-      + '\n\n◯完璧にできた／解もっと良い解法／記記述が甘い／△計算ミス／✕方針が違った。'
-      + '\n\nこの評価をもとに、次にいつ復習するかが決まります。',
-    target: '[data-tour="home-todo"]',
-    next: '次へ',
-  },
-  {
-    id: 'done',
-    title: '準備はここまで',
-    body: 'あとは、勉強のときにこのアプリを開くだけです。'
-      + '\n\nもう一度この案内を見たいときは、設定 → 使い方 から呼べます。',
-    next: 'はじめる',
+    next: 'おわり',
   },
 ]);
 
@@ -209,12 +194,14 @@ function buildCard(step) {
 
   const count = el('div', 'tour-count', `${active.index + 1} / ${STEPS.length}`);
   const title = el('div', 'tour-title', step.title);
-  const body = el('div', 'tour-body');
-  // 段落の切れ目を、そのまま行の切れ目として出す。
-  for (const paragraph of step.body.split('\n\n')) {
-    body.append(el('p', null, paragraph));
+  card.append(count, title);
+  // 本文は無いこともある（押す場所を指すだけで足りる手順）。
+  const paragraphs = (step.body ?? '').split('\n\n').filter(Boolean);
+  if (paragraphs.length) {
+    const body = el('div', 'tour-body');
+    for (const paragraph of paragraphs) body.append(el('p', null, paragraph));
+    card.append(body);
   }
-  card.append(count, title, body);
 
   // 実際のデータを見たうえで足す一言。あとから届くので、置き場所だけ先に作る。
   const note = el('div', 'tour-note');
@@ -234,9 +221,13 @@ function buildCard(step) {
   }
 
   const actions = el('div', 'tour-actions');
-  const skip = el('button', 'tour-skip', step.id === 'done' ? '閉じる' : 'あとで');
-  skip.onclick = () => stopTour({ finished: step.id === 'done' });
-  actions.append(skip);
+  // 最後の手順では「あとで」を出さない。もう終わりなので、やめる先が無い。
+  const isLast = active.index === STEPS.length - 1;
+  if (!isLast) {
+    const skip = el('button', 'tour-skip', 'あとで');
+    skip.onclick = () => stopTour({ finished: false });
+    actions.append(skip);
+  }
 
   if (step.next) {
     const next = el('button', 'tour-next', step.next);

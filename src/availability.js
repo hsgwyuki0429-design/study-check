@@ -12,6 +12,11 @@
 //   1. 「未設定」と「0分」は別物として扱う。
 //      未設定の日は available を null で返し、使える時間を勝手に決めない。
 //      計画を作る側は、未設定の日には予定を置かない（利用者に設定を促す）。
+//
+//      ただし、曜日をひとつだけ入れたときは、それを全部の曜日の値として使う。
+//      「毎日だいたい同じ」がふつうなので、7つ全部を書かせるのは手間なだけである。
+//      特定の曜日だけ勉強できないなら、その曜日に 0 と書けばよい。
+//      ふたつ以上入っているときは、書いたとおりに受け取る（書き分けた意図を尊重する）。
 //   2. 「今日はあと30分」と言われたら、そこから実施済みの時間をさらに引かない。
 //      標準の枠から計算するときだけ、その日にすでに使った時間を引く。
 //   3. 予備時間は1日につき1回だけ引く。見積もりの補助時間（答え合わせ）とは別のもので、
@@ -84,6 +89,16 @@ export function normalizeAvailability(raw, { now = Date.now() } = {}) {
   };
 }
 
+/**
+ * 曜日をひとつだけ入れたときの、その値。
+ *
+ * ふたつ以上入っているなら null（書き分けたとみなし、空欄は未設定のまま）。
+ */
+export function singleWeeklyValue(weekly) {
+  const filled = WEEKDAY_KEYS.filter((key) => (weekly?.[key] ?? null) !== null);
+  return filled.length === 1 ? weekly[filled[0]] : null;
+}
+
 export const weekdayKeyOf = (dateKey) => {
   const ms = Date.parse(`${dateKey}T00:00:00Z`);
   if (!Number.isFinite(ms)) return null;
@@ -127,8 +142,12 @@ export function availabilityForDate(availability, dateKey, { spentSeconds = 0, i
   const override = Object.prototype.hasOwnProperty.call(settings.overrides, dateKey)
     ? settings.overrides[dateKey]
     : null;
-  const weekly = settings.weekly[weekdayKeyOf(dateKey)] ?? null;
+  const weekdayValue = settings.weekly[weekdayKeyOf(dateKey)] ?? null;
+  // 曜日をひとつだけ入れたときは、それを全部の曜日に使う。
+  const onlyOne = weekdayValue === null ? singleWeeklyValue(settings.weekly) : null;
+  const weekly = weekdayValue !== null ? weekdayValue : onlyOne;
   const base = override !== null ? override : weekly;
+  const spread = override === null && weekdayValue === null && onlyOne !== null;
 
   if (base === null) {
     return {
@@ -153,13 +172,15 @@ export function availabilityForDate(availability, dateKey, { spentSeconds = 0, i
     date: dateKey,
     available,
     rawMinutes: base,
-    source: override !== null ? 'override' : 'weekly',
+    source: override !== null ? 'override' : spread ? 'weekly_single' : 'weekly',
     spentMinutes,
     spentSubtracted: isToday,
     reserveMinutes: reserve,
     configured: true,
     note: isToday
       ? `標準${base}分から、計測できた学習${spentMinutes}分${reserve ? `と予備${reserve}分` : ''}を引いた残りです。アプリの外で解いた分は分かりません。`
-      : `${override !== null ? 'この日の設定' : '曜日別の標準'}${base}分${reserve ? `（予備${reserve}分を除く）` : ''}。`,
+      : `${override !== null ? 'この日の設定' : spread ? '毎日の標準' : '曜日別の標準'}${base}分`
+        + `${reserve ? `（予備${reserve}分を除く）` : ''}。`
+        + `${spread ? ' 曜日をひとつだけ入れたので、全部の曜日でこの値を使っています。' : ''}`,
   };
 }

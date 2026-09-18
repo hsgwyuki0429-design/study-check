@@ -2,8 +2,14 @@
 // このファイルは「保存先」だけを担当し、ドメインロジックは api.js 側に置く。
 // 学習データはこの端末の中だけにあり、外へ送る仕組みは持たない。
 
-const DB_NAME = 'aochart';
-const DB_VERSION = 3;
+// このアプリ専用の保存先。
+//
+// IndexedDB は「置き場所（パス）」ではなく「配信元（オリジン）」ごとに分かれる。
+// 同じ GitHub Pages に別のアプリ（study-todo など）が置いてあると、
+// 名前が同じDBは中身まで共有され、覚えのない目標や予定が出てくる。
+// アプリごとに違う名前にして、混ざらないようにする。
+const DB_NAME = 'study-check';
+const DB_VERSION = 1;
 
 export const STORES = {
   questions: 'questions',
@@ -52,7 +58,6 @@ function open() {
       if (!db.objectStoreNames.contains(STORES.meta)) {
         db.createObjectStore(STORES.meta, { keyPath: 'key' });
       }
-      // v3 で足した。既存のストアには触れないので、いままでのデータは残る。
       if (!db.objectStoreNames.contains(STORES.moves)) {
         const s = db.createObjectStore(STORES.moves, { keyPath: 'id' });
         s.createIndex('fromDate', 'fromDate');

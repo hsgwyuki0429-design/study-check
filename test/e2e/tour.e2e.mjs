@@ -88,7 +88,7 @@ test("指されたところを実際に押すと、次へ進む", options, async
 
   // 5. 「目標を追加」
   await page.locator('[data-tour="goal-add"]').click();
-  await waitForStep(page, "この内容で作成");
+  await waitForStep(page, "作成する");
 
   // 案内のカードが、これから押すものを隠していない。
   const overlap = await page.evaluate(() => {
@@ -102,16 +102,27 @@ test("指されたところを実際に押すと、次へ進む", options, async
   assert.equal(overlap.hidden, false, "案内が「この内容で作成」を隠している");
 
   // 6. 中身を入れて作成する（実際に目標ができたときだけ進む）。
+  // 章を選ぶと単元が出る。単元は複数えらべるので、2つ選んでから作る。
+  const chapterSelect = page.locator('[data-tour="goal-form"] select').first();
+  await chapterSelect.selectOption({ index: 1 });
+  const sections = page.locator('.section-picker .section-choice input');
+  await sections.nth(1).check();
+  await sections.nth(2).check();
   await page.locator(".section-body input.cloud-input").first().fill("1章をひととおり");
   await page.locator('[data-tour="goal-submit"]').click();
   await waitForStep(page, "学習に使える時間");
 
-  const goals = await page.evaluate(async () => (await (await import("./src/api.js")).getGoals()).length);
-  assert.equal(goals, 1, "目標ができていないのに進んだ");
+  const goal = await page.evaluate(async () => {
+    const [first] = await (await import("./src/api.js")).getGoals();
+    return { count: 1, questions: first.questionIds.length, scope: first.scope };
+  });
+  assert.ok(goal.questions > 0, "対象の問題が入っていない");
+  // 選んだ2単元ぶんだけが対象。章まるごとにはなっていない。
+  assert.match(goal.scope, /\s\/\s.+\s\/\s/, `選んだ単元が残っていない: ${goal.scope}`);
 
   // 7. 「学習に使える時間」を開く
   await page.locator('[data-tour="section-availability"]').click();
-  await waitForStep(page, "曜日ごと");
+  await waitForStep(page, "使える分");
 
   // 8. 分を入れる（入れたときだけ進む）。
   // 今日の曜日に入れる。別の曜日だけ入れても、今日の予定は空のままになる。
@@ -140,13 +151,7 @@ test("指されたところを実際に押すと、次へ進む", options, async
     () => document.querySelectorAll('[data-tour="home-todo"] .row').length);
   assert.ok(todo > 0, "案内が約束した予定が、実際には並んでいない");
 
-  // 10〜11. 説明を読み進める
-  await page.locator(".tour-next").click();
-  await waitForStep(page, "計測");
-  await page.locator(".tour-next").click();
-  await waitForStep(page, "準備はここまで");
-
-  // 12. 終わる
+  // 10. 終わる
   await page.locator(".tour-next").click();
   await page.locator(".tour-card").waitFor({ state: "detached", timeout: 5000 });
 
@@ -177,7 +182,7 @@ test("設定 → 使い方 から、もう一度呼べる", options, async () =>
 
   await page.locator('[data-tour="tab-settings"]').click();
   await page.locator(".section-toggle", { hasText: "使い方" }).click();
-  await page.locator("button", { hasText: "使い方をもう一度見る" }).click();
+  await page.locator("button", { hasText: "はじめの案内をもう一度見る" }).click();
 
   await page.locator(".tour-card").waitFor({ timeout: 10000 });
   assert.match(await title(page), /ようこそ/);
@@ -202,8 +207,14 @@ test("予定が空のときは、その理由を添える", options, async () =>
     await api.addGoal({ title: "目標", questionIds: questions.map((q) => q.id), priority: 1 });
     const { weekdayKeyOf, WEEKDAY_KEYS } = await import("./src/availability.js");
     const todayIndex = WEEKDAY_KEYS.indexOf(weekdayKeyOf(api.todayKey()));
-    // わざと今日とは違う曜日にだけ入れる。
-    await api.saveAvailability({ weekly: { [WEEKDAY_KEYS[(todayIndex + 3) % 7]]: 60 } });
+    // 今日とは違う曜日を2つ入れる。ひとつだけなら全曜日に広がってしまうので、
+    // 「今日だけ未設定」を作るには2つ以上を書き分ける必要がある。
+    await api.saveAvailability({
+      weekly: {
+        [WEEKDAY_KEYS[(todayIndex + 2) % 7]]: 60,
+        [WEEKDAY_KEYS[(todayIndex + 3) % 7]]: 60,
+      },
+    });
     return runner.noteFor("todo");
   });
 

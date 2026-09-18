@@ -263,3 +263,66 @@ test("GitHub Pages のように階層の途中へ置いても、そのまま動�
   assert.deepEqual(errors.filter((text) => !/Failed to fetch|net::ERR|504/.test(text)), []);
   await context.close();
 });
+
+test("同じ配信元に置いた別のアプリのデータを、持ち込まない", options, async () => {
+  // GitHub Pages では https://<名前>.github.io/ の下に、いくつもアプリを置ける。
+  // IndexedDB は「置き場所」ではなく「配信元」ごとに分かれるので、
+  // 名前が同じDBを使っていると、別アプリの目標や予定がそのまま見えてしまう。
+  await server.close();
+  server = await startTestServer({ basePath: "study-check" });
+
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+
+  await page.goto(server.appUrl);
+  await page.waitForFunction(() => document.querySelectorAll(".tabbar button").length > 0);
+
+  // 別のアプリ（study-todo）が、むかしの名前のDBに目標と予定を入れている状態を作る。
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open("aochart", 3);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      for (const [name, key] of [["goals", "id"], ["tasks", "id"]]) {
+        if (!db.objectStoreNames.contains(name)) {
+          const store = db.createObjectStore(name, { keyPath: key });
+          if (name === "tasks") store.createIndex("date", "date");
+        }
+      }
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(["goals", "tasks"], "readwrite");
+      transaction.objectStore("goals").put({
+        id: "g-other", title: "別アプリの目標", questionIds: ["x"], status: "active",
+        priority: 3, completion: { type: "attempt" }, revision: 0,
+        updatedAt: new Date().toISOString(),
+      });
+      transaction.objectStore("tasks").put({
+        id: "t-other", date: "2026-09-18", kind: "new", questionIds: ["x"], order: 0, completed: false,
+      });
+      transaction.oncomplete = () => { db.close(); resolve(); };
+      transaction.onerror = () => reject(transaction.error);
+    };
+    request.onerror = () => reject(request.error);
+  }));
+
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll(".tabbar button").length > 0);
+  await page.waitForTimeout(1500);
+
+  const seen = await page.evaluate(async () => {
+    const api = await import("./src/api.js");
+    return {
+      goals: (await api.getGoals()).map((goal) => goal.title),
+      tasks: (await api.getTasksInRange("2000-01-01", "2100-01-01")).length,
+    };
+  });
+
+  assert.deepEqual(seen.goals, [], "別アプリの目標が見えている");
+  assert.equal(seen.tasks, 0, "別アプリの予定が見えている");
+  assert.deepEqual(errors, []);
+  await context.close();
+});

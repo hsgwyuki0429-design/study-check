@@ -74,22 +74,52 @@ async function goalForm(list, rerender) {
   chapterSelect.value = draft.chapter;
   chapterSelect.onchange = () => {
     draft.chapter = chapterSelect.value;
-    draft.section = '';
+    draft.sections = [];
     rerender();
   };
 
-  const sectionSelect = el('select');
-  sectionSelect.append(new Option('単元をすべて', ''));
-  if (draft.chapter) {
-    [...new Set(questions.filter((question) => question.chapter === draft.chapter).map((question) => question.section))]
-      .forEach((section) => sectionSelect.append(new Option(section, section)));
+  // 単元は複数えらべる。1つずつしか選べないと、
+  //「この章のうち2〜3単元だけ」という、いちばんよくある決め方ができない。
+  const sectionsOfChapter = draft.chapter
+    ? [...new Set(questions
+      .filter((question) => question.chapter === draft.chapter)
+      .map((question) => question.section))]
+    : [];
+  // 選んだ単元のうち、いまの章にあるものだけを残す（章を変えたときの取りこぼしを防ぐ）。
+  draft.sections = (draft.sections ?? []).filter((section) => sectionsOfChapter.includes(section));
+
+  const sectionBox = el('div', 'section-picker');
+  if (!draft.chapter) {
+    sectionBox.append(el('div', 'row-sub', '先に章を選ぶと、単元をえらべます。'));
+  } else {
+    const all = el('label', 'section-choice');
+    const allInput = el('input');
+    allInput.type = 'checkbox';
+    allInput.checked = draft.sections.length === 0;
+    allInput.onchange = () => {
+      draft.sections = [];
+      rerender();
+    };
+    all.append(allInput, el('span', null, `この章をすべて（${sectionsOfChapter.length}単元）`));
+    sectionBox.append(all);
+
+    for (const section of sectionsOfChapter) {
+      const count = questions.filter((question) => question.section === section
+        && question.chapter === draft.chapter).length;
+      const choice = el('label', 'section-choice');
+      const input = el('input');
+      input.type = 'checkbox';
+      input.checked = draft.sections.includes(section);
+      input.onchange = () => {
+        draft.sections = input.checked
+          ? [...draft.sections, section]
+          : draft.sections.filter((value) => value !== section);
+        rerender();
+      };
+      choice.append(input, el('span', null, `${section}（${count}問）`));
+      sectionBox.append(choice);
+    }
   }
-  sectionSelect.value = draft.section;
-  sectionSelect.disabled = !draft.chapter;
-  sectionSelect.onchange = () => {
-    draft.section = sectionSelect.value;
-    rerender();
-  };
 
   const completionSelect = el('select');
   completionSelect.append(new Option(GOAL_COMPLETION_LABELS.attempt, 'attempt'));
@@ -104,14 +134,14 @@ async function goalForm(list, rerender) {
 
   const targets = api.selectQuestions(questions, {
     chapter: draft.chapter || undefined,
-    section: draft.section || undefined,
+    sections: draft.sections?.length ? draft.sections : undefined,
   });
 
   const form = tourTarget('goal-form', el('div', 'plan-form'));
   form.append(
     el('div', 'row-sub', '目標の内容'), titleInput,
     el('div', 'row-sub', '期限（空なら期限なし）'), deadlineInput,
-    el('div', 'row-sub', '対象の範囲'), chapterSelect, sectionSelect,
+    el('div', 'row-sub', '対象の範囲'), chapterSelect, sectionBox,
     el('div', 'row-sub', `対象 ${targets.length}問（いま選んでいる範囲の問題が、作成時に確定します）`),
     el('div', 'row-sub', '達成条件'), completionSelect,
     el('div', 'row-sub', '「習得する」は、この目標に結び付いた最新の取り組みが ◯完璧にできた であれば達成とします。'),
@@ -131,6 +161,7 @@ async function goalForm(list, rerender) {
       await api.addGoal({
         title: draft.title.trim(),
         deadline: draft.deadline,
+        scope: [draft.chapter, ...(draft.sections ?? [])].filter(Boolean).join(' / '),
         questionIds: targets.map((question) => question.id),
         completion: draft.completionType === 'mastery'
           ? { type: 'mastery', evaluations: ['perfect'], mode: 'latest' }
@@ -191,7 +222,7 @@ export async function renderGoalCard(list, rerender) {
   } else {
     const actions = el('div', 'setting-actions');
     actions.append(tourTarget('goal-add', button('目標を追加', () => {
-      newGoal = { title: '', deadline: '', chapter: '', section: '', completionType: 'attempt', priority: 3 };
+      newGoal = { title: '', deadline: '', chapter: '', sections: [], completionType: 'attempt', priority: 3 };
       rerender();
     })));
     list.append(actions);
@@ -226,7 +257,18 @@ export async function renderAvailabilityCard(list, rerender) {
     }));
     grid.append(cell);
   }
-  list.append(el('div', 'row-sub row-indent', '曜日ごとの標準（分）。空欄は「未設定」で、0分とは違います。'));
+  // ひとつだけ入れたときは、それが全部の曜日に使われる。
+  // 7つ全部を書かせるのは手間なだけなので、まず1つでよいことを先に書く。
+  const filled = WEEKDAY_KEYS.filter((key) => availability.weekly[key] !== null);
+  list.append(el('div', 'row-sub row-indent',
+    filled.length === 1
+      ? `${WEEKDAY_LABELS[filled[0]]}に入れた${availability.weekly[filled[0]]}分を、全部の曜日で使っています。`
+        + ' 曜日ごとに変えたいときは、ほかの曜日にも入れてください。'
+      : filled.length === 0
+        ? '1日に使える分（分）。どれかひとつ入れれば、全部の曜日でその値を使います。'
+          + ' 勉強できない曜日は 0 と入れてください。'
+        : '曜日ごとの標準（分）。空欄は「未設定」で、その日には予定を置きません。'
+          + ' 勉強できない曜日は 0 と入れてください。'));
   list.append(tourTarget('weekday-grid', grid));
 
   // 今日の残り。

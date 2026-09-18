@@ -102,6 +102,9 @@ function normalizeScopeFilter(raw) {
     subject: pick('subject'),
     chapter: pick('chapter'),
     section: pick('section'),
+    sections: Array.isArray(raw.sections)
+      ? raw.sections.filter((value) => typeof value === 'string' && value).slice(0, 80)
+      : null,
     course: pick('course', 20),
     types: Array.isArray(raw.types) ? raw.types.filter((t) => typeof t === 'string').slice(0, 20) : null,
     numberFrom: Number.isFinite(Number(raw.numberFrom)) ? Number(raw.numberFrom) : null,
@@ -116,7 +119,11 @@ export function selectQuestions(questions, filter = {}) {
   let list = [...questions];
   if (filter.subject) list = list.filter((q) => q.subject === filter.subject);
   if (filter.chapter) list = list.filter((q) => q.chapter === filter.chapter);
-  if (filter.section) list = list.filter((q) => q.section === filter.section);
+  // 単元は複数選べる。ひとつだけ指定する古い形（section）も受け取る。
+  const sections = Array.isArray(filter.sections) && filter.sections.length
+    ? filter.sections
+    : (filter.section ? [filter.section] : null);
+  if (sections) list = list.filter((q) => sections.includes(q.section));
   if (filter.course) list = list.filter((q) => (q.courses ?? []).includes(filter.course));
   if (Array.isArray(filter.types) && filter.types.length) list = list.filter((q) => filter.types.includes(q.type));
   if (Number.isFinite(Number(filter.numberFrom))) list = list.filter((q) => q.number >= Number(filter.numberFrom));

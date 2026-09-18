@@ -1088,3 +1088,36 @@ button:active { filter: brightness(.94); }
   font-size: 13px;
   line-height: 1.6;
 }
+
+/* 目標の対象にする単元えらび（複数えらべる）。 */
+.section-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.section-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: var(--font-body);
+  cursor: pointer;
+}
+
+.section-choice input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.section-choice:has(input:checked) { background: var(--accent-bg); }

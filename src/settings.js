@@ -227,27 +227,64 @@ async function buildDangerZone(list) {
 }
 
 /**
- * 使い方の案内をもう一度出す。
+ * 使い方。
  *
- * 案内は本物の画面を指すので、設定タブを開いたままでは始められない。
- * 押したらホームへ戻してから始める（案内の1歩目がホームから始まるため）。
+ * はじめの案内は短くしてある（手を動かしてもらうためのもの）。
+ * くわしい説明はここに置き、必要になったときに読めるようにする。
  */
+const USAGE_TOPICS = [
+  {
+    title: '今日やる問題は、どう決まるのか',
+    body: 'まず、前に間違えた問題の復習を置きます。そのあと、まだ解いていない問題を、'
+      + '教科書に載っている順に置きます。使える時間に収まるところまでで止めます。'
+      + ' 復習が多い日は、新しい問題が0問になることもあります。',
+  },
+  {
+    title: '5つの評価の意味',
+    body: '◯完璧にできた ／ 解もっと良い解法があった ／ 記記述が甘い ／ △計算ミス ／ ✕方針が違った。'
+      + ' ✕がいちばん重く、次の学習日にすぐ復習に出ます。'
+      + ' △と記は3日後、同じ失敗が続くと 2日後 → 次の学習日 と間隔が縮みます。'
+      + ' 解はいちばん軽く、急ぎません。',
+  },
+  {
+    title: 'いつ「できた」ことになるのか',
+    body: '◯を2回そろえると「一応クリア」になり、しばらく出てこなくなります。'
+      + ' そのあとで間違えると、クリアは取り消されて、また◯2回からやり直しです。',
+  },
+  {
+    title: '目標の優先順位',
+    body: '数が小さいほど先に進めます。優先順位2の問題が残っているうちは、'
+      + '優先順位3の「新しい問題」には進みません。'
+      + ' ただし復習は別で、どの優先順位のものでも、時期が来れば出ます。',
+  },
+  {
+    title: '学習に使える時間',
+    body: '曜日をひとつだけ入れると、その値を全部の曜日で使います。'
+      + ' 勉強できない曜日があれば、その曜日に 0 と入れてください。'
+      + ' 空欄のままだと「未設定」で、その日には予定を置きません。',
+  },
+  {
+    title: 'やらなかった日はどうなるか',
+    body: '失敗としては扱いません。やらなかった分は、そのまま次の日へ繰り越します。'
+      + ' 理由を聞いたり、勝手に推測したりもしません。',
+  },
+  {
+    title: '予定を動かされたくないとき',
+    body: 'ホームの「やること」で、タスクを固定できます。'
+      + ' 固定したものは、自動で消えたり動いたりしません。',
+  },
+  {
+    title: 'データはどこにあるか',
+    body: 'この端末のブラウザの中だけです。どこにも送っていません。'
+      + ' ブラウザのデータを消すと学習記録も消えるので、大事なら 設定 → バックアップ で'
+      + '書き出しておいてください。',
+  },
+];
+
 async function buildUsage(list) {
   const tour = await api.getTourState();
-  list.append(row({
-    title: '本物の画面で案内します',
-    sub: '「まずここを押す」と指したところを実際に押すと、次へ進みます。'
-      + ' 途中でやめても、ここからまた呼べます。',
-  }));
-  if (tour.finishedAt) {
-    list.append(row({
-      title: '前に最後まで見ています',
-      sub: fmtDate(tour.finishedAt.slice(0, 10)),
-      classes: ['row-indent'],
-    }));
-  }
 
-  const start = el('button', 'btn btn-primary', '使い方をもう一度見る');
+  const start = el('button', 'btn btn-primary', 'はじめの案内をもう一度見る');
   start.onclick = () => {
     // 案内はホームから始まるので、そこへ戻してから出す。
     state.tab = 'home';
@@ -258,6 +295,17 @@ async function buildUsage(list) {
   const wrap = el('div', 'setting-actions');
   wrap.append(start);
   list.append(wrap);
+  list.append(row({
+    title: '本物の画面で案内します',
+    sub: '指したところを実際に押すと、次へ進みます。'
+      + (tour.finishedAt ? ` 前に見たのは ${fmtDate(tour.finishedAt.slice(0, 10))} です。` : ''),
+    classes: ['row-indent'],
+  }));
+
+  list.append(el('div', 'section-head', 'くわしい説明'));
+  for (const topic of USAGE_TOPICS) {
+    list.append(row({ title: topic.title, sub: topic.body, classes: ['row-indent'] }));
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -271,6 +319,9 @@ export async function renderSettings(screen) {
   const goals = await api.getGoals();
   const availability = await api.getAvailability();
   const configuredDays = Object.values(availability.weekly).filter((value) => value !== null).length;
+  const availabilitySub = configuredDays === 0 ? '未設定（設定すると計画に使われます）'
+    : configuredDays === 1 ? '毎日ぶんを設定済み（曜日ごとに変えることもできます）'
+      : `${configuredDays}曜日ぶんを設定済み`;
 
   await section(screen, {
     id: 'goals',
@@ -282,7 +333,7 @@ export async function renderSettings(screen) {
   await section(screen, {
     id: 'availability',
     title: '学習に使える時間',
-    sub: configuredDays ? `${configuredDays}曜日ぶんを設定済み` : '未設定（設定すると計画に使われます）',
+    sub: availabilitySub,
     build: (list) => renderAvailabilityCard(list, render),
   });
 
@@ -329,7 +380,7 @@ export async function renderSettings(screen) {
   await section(screen, {
     id: 'usage',
     title: '使い方',
-    sub: 'はじめの案内を、もう一度見る',
+    sub: 'はじめの案内と、くわしい説明',
     build: buildUsage,
   });
 

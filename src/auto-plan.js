@@ -158,7 +158,7 @@ export function buildAutoPlan({
       isToday: date === today,
     });
 
-    // すでに置いてある予定のうち、動かさないもの（固定・実施中・完了・利用者が入れたもの）。
+    // すでに置いてある予定のうち、動かさないもの（実施中・完了・利用者が入れたもの）。
     const keep = [];
     const removable = [];
     for (const task of plan?.tasks ?? []) {
@@ -384,7 +384,8 @@ export function fillRatio(confidences = []) {
 
 /**
  * 動かしてはいけない予定か（企画書17章）。
- * 完了・固定・いま解いているもの・利用者が自分で入れたものは、自動では触らない。
+ * 完了・いま解いているもの・利用者が自分で入れたものは、自動では触らない。
+ * 「動かさない印（pinned）」が付いたデータも守る（いまは付ける画面を持たない）。
  */
 function isProtectedTask(task, item, protectedItemIds) {
   if (task.completed === true) return true;

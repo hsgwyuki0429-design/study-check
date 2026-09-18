@@ -101,6 +101,9 @@ function normalizeScopeFilter(raw) {
   return {
     subject: pick('subject'),
     chapter: pick('chapter'),
+    chapters: Array.isArray(raw.chapters)
+      ? raw.chapters.filter((value) => typeof value === 'string' && value).slice(0, 40)
+      : null,
     section: pick('section'),
     sections: Array.isArray(raw.sections)
       ? raw.sections.filter((value) => typeof value === 'string' && value).slice(0, 80)
@@ -118,7 +121,11 @@ function normalizeScopeFilter(raw) {
 export function selectQuestions(questions, filter = {}) {
   let list = [...questions];
   if (filter.subject) list = list.filter((q) => q.subject === filter.subject);
-  if (filter.chapter) list = list.filter((q) => q.chapter === filter.chapter);
+  // 章も複数えらべる。ひとつだけ指定する古い形（chapter）も受け取る。
+  const chapters = Array.isArray(filter.chapters) && filter.chapters.length
+    ? filter.chapters
+    : (filter.chapter ? [filter.chapter] : null);
+  if (chapters) list = list.filter((q) => chapters.includes(q.chapter));
   // 単元は複数選べる。ひとつだけ指定する古い形（section）も受け取る。
   const sections = Array.isArray(filter.sections) && filter.sections.length
     ? filter.sections

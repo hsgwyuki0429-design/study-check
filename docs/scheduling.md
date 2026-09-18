@@ -253,7 +253,6 @@ HUMAN_INPUT_REQUIRED: challenge ready
 
 - いま解いているタスク
 - 完了したタスク
-- 固定（ピン留め）したタスク
 - 利用者が自分で入れた予定（自動で置いた印 `source: "auto"` が無いもの）
 - 過ぎた日の予定
 

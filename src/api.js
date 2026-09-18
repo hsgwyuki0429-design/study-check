@@ -364,7 +364,8 @@ export async function updateTodayTasks(tasks, date = studyDayKey(), { bumpRevisi
     order: t.order ?? i,
     ...(t.timeLimitSeconds ? { timeLimitSeconds: t.timeLimitSeconds } : {}),
     completed: !!t.completed,
-    // 利用者が固定した印。古いデータには無いので false として補う。
+    // 動かさない印。いまは付け外しする画面を持たないが、
+    // 付いているデータを読んだときは、自動スケジュールから守る。
     pinned: t.pinned === true,
     createdAt: t.createdAt ?? now,
     updatedAt: t.updatedAt ?? now,
@@ -412,16 +413,6 @@ export async function getRecordedByDate() {
     (map[day] ??= new Set()).add(r.questionId);
   });
   return map;
-}
-
-/** 固定（ピン留め）の付け外し。利用者だけが行える操作。 */
-export async function setTaskPinned(taskId, pinned) {
-  const task = await idb.get(STORES.tasks, taskId);
-  if (!task) return null;
-  const next = { ...task, pinned: pinned === true, updatedAt: new Date().toISOString() };
-  await idb.put(STORES.tasks, next);
-  await bumpPlanRevision(task.date);
-  return next;
 }
 
 export async function saveTask(task) {
@@ -775,16 +766,9 @@ export async function saveAvailability(patch) {
     ...current,
     ...patch,
     weekly: { ...current.weekly, ...(patch.weekly ?? {}) },
-    overrides: { ...current.overrides, ...(patch.overrides ?? {}) },
     updatedAt: new Date().toISOString(),
     revision: Number(current.revision ?? 0) + 1,
   });
-  if (patch.overrides) {
-    for (const [date, value] of Object.entries(patch.overrides)) {
-      if (value === null) delete next.overrides[date];
-    }
-  }
-  if (patch.todayRemaining === null) next.todayRemaining = null;
   await idb.put(STORES.meta, { key: AVAILABILITY_KEY, value: next });
   return next;
 }
@@ -837,10 +821,6 @@ export async function estimateForQuestionId(questionId, { inChallenge = false } 
     history,
     stored: entries[questionId] ?? null,
     condition: { firstTry: history.length === 0, inChallenge },
-    review: {
-      timerIncludesReview: availability.timerIncludesReview,
-      reviewOverheadSeconds: availability.reviewOverheadSeconds,
-    },
     truncatedChallengeIds: truncated,
   });
 }
@@ -884,10 +864,6 @@ export async function createDayPlanner() {
         history,
         stored: entries[questionId] ?? null,
         condition: { firstTry: history.length === 0, inChallenge },
-        review: {
-          timerIncludesReview: availability.timerIncludesReview,
-          reviewOverheadSeconds: availability.reviewOverheadSeconds,
-        },
         truncatedChallengeIds: truncated,
       }));
     }

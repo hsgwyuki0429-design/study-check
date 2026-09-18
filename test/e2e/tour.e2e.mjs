@@ -102,13 +102,12 @@ test("指されたところを実際に押すと、次へ進む", options, async
   assert.equal(overlap.hidden, false, "案内が「この内容で作成」を隠している");
 
   // 6. 中身を入れて作成する（実際に目標ができたときだけ進む）。
-  // 章を選ぶと単元が出る。単元は複数えらべるので、2つ選んでから作る。
-  const chapterSelect = page.locator('[data-tour="goal-form"] select').first();
-  await chapterSelect.selectOption({ index: 1 });
-  const sections = page.locator('.section-picker .section-choice input');
+  // 章も単元も、いくつでもえらべる。章を1つ選び、そのうち2単元に絞って作る。
+  await page.locator('[data-tour="goal-chapters"] .section-choice input').nth(1).check();
+  const sections = page.locator('[data-tour="goal-sections"] .section-choice input');
   await sections.nth(1).check();
   await sections.nth(2).check();
-  await page.locator(".section-body input.cloud-input").first().fill("1章をひととおり");
+  await page.locator(".section-body input.cloud-input").first().fill("1章の前半");
   await page.locator('[data-tour="goal-submit"]').click();
   await waitForStep(page, "学習に使える時間");
 
@@ -117,25 +116,20 @@ test("指されたところを実際に押すと、次へ進む", options, async
     return { count: 1, questions: first.questionIds.length, scope: first.scope };
   });
   assert.ok(goal.questions > 0, "対象の問題が入っていない");
-  // 選んだ2単元ぶんだけが対象。章まるごとにはなっていない。
-  assert.match(goal.scope, /\s\/\s.+\s\/\s/, `選んだ単元が残っていない: ${goal.scope}`);
+  // 章1つ ＋ 単元2つ が残っている（章まるごとにはなっていない）。
+  assert.equal(goal.scope.split(' / ').length, 3, `選んだ範囲が残っていない: ${goal.scope}`);
 
   // 7. 「学習に使える時間」を開く
   await page.locator('[data-tour="section-availability"]').click();
   await waitForStep(page, "使える分");
 
   // 8. 分を入れる（入れたときだけ進む）。
-  // 今日の曜日に入れる。別の曜日だけ入れても、今日の予定は空のままになる。
-  // 曜日はアプリと同じ出し方（UTC基準）で求める。ブラウザの時間帯で
-  // getDay() を使うと、1日ずれた曜日に入れてしまう。
-  const todayIndex = await page.evaluate(async () => {
-    const { weekdayKeyOf, WEEKDAY_KEYS } = await import("./src/availability.js");
-    const api = await import("./src/api.js");
-    return WEEKDAY_KEYS.indexOf(weekdayKeyOf(api.todayKey()));
-  });
-  const cell = page.locator('[data-tour="weekday-grid"] input').nth(todayIndex);
-  await cell.fill("60");
-  await cell.blur();
+  // 入れるのは「平日」と「休日」の2つだけ。片方だけでよく、
+  // もう片方にも同じ値が使われる（今日が平日でも休日でも予定が出る）。
+  const cells = page.locator('[data-tour="weekday-grid"] input');
+  assert.equal(await cells.count(), 2, "曜日を7つ書かせている");
+  await cells.first().fill("60");
+  await cells.first().blur();
   await waitForStep(page, "ホーム");
 
   // 9. ホームへ戻る
@@ -207,12 +201,12 @@ test("予定が空のときは、その理由を添える", options, async () =>
     await api.addGoal({ title: "目標", questionIds: questions.map((q) => q.id), priority: 1 });
     const { weekdayKeyOf, WEEKDAY_KEYS } = await import("./src/availability.js");
     const todayIndex = WEEKDAY_KEYS.indexOf(weekdayKeyOf(api.todayKey()));
-    // 今日とは違う曜日を2つ入れる。ひとつだけなら全曜日に広がってしまうので、
-    // 「今日だけ未設定」を作るには2つ以上を書き分ける必要がある。
+    // 今日とは違う曜日に、違う値を2つ入れる。値が1種類だと書いていない曜日にも
+    // 広がってしまうので、「今日だけ未設定」を作るには2種類の値が要る。
     await api.saveAvailability({
       weekly: {
         [WEEKDAY_KEYS[(todayIndex + 2) % 7]]: 60,
-        [WEEKDAY_KEYS[(todayIndex + 3) % 7]]: 60,
+        [WEEKDAY_KEYS[(todayIndex + 3) % 7]]: 90,
       },
     });
     return runner.noteFor("todo");

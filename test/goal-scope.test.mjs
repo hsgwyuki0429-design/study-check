@@ -49,3 +49,37 @@ test("選んだ単元は、目標にそのまま残る", () => {
   });
   assert.deepEqual(goal.scopeFilter.sections, ["多項式", "1次不等式"]);
 });
+
+test("章も複数えらべる", () => {
+  const picked = selectQuestions(QUESTIONS, { chapters: ["数と式", "2次関数"] });
+  assert.deepEqual(picked.map((x) => x.id), ["a1", "a2", "b1", "c1", "d1"]);
+});
+
+test("章を複数えらんだうえで、単元でさらに絞れる", () => {
+  const picked = selectQuestions(QUESTIONS, {
+    chapters: ["数と式", "2次関数"],
+    sections: ["多項式", "2次関数のグラフ"],
+  });
+  assert.deepEqual(picked.map((x) => x.id), ["a1", "a2", "d1"]);
+});
+
+test("章をえらばなければ、全部が対象になる", () => {
+  assert.equal(selectQuestions(QUESTIONS, { chapters: [] }).length, QUESTIONS.length);
+  assert.equal(selectQuestions(QUESTIONS, {}).length, QUESTIONS.length);
+});
+
+test("ひとつだけ指定する古い形（chapter）も、そのまま受け取る", () => {
+  const picked = selectQuestions(QUESTIONS, { chapter: "2次関数" });
+  assert.deepEqual(picked.map((x) => x.id), ["d1"]);
+});
+
+test("選んだ章は、目標にそのまま残る", () => {
+  const goal = normalizeGoal({
+    id: "g2",
+    title: "2章ぶん",
+    questionIds: ["a1"],
+    scopeFilter: { chapters: ["数と式", "2次関数"], sections: ["多項式"] },
+  });
+  assert.deepEqual(goal.scopeFilter.chapters, ["数と式", "2次関数"]);
+  assert.deepEqual(goal.scopeFilter.sections, ["多項式"]);
+});

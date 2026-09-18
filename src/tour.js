@@ -54,7 +54,7 @@ export const STEPS = Object.freeze([
   {
     id: 'fill-goal',
     title: '名前と範囲を決めて、作成する',
-    body: '単元は、いくつでもえらべます。',
+    body: '章も単元も、いくつでもえらべます。',
     target: '[data-tour="goal-form"]',
     await: 'state',
     hint: '作成すると次へ進みます',
@@ -68,8 +68,8 @@ export const STEPS = Object.freeze([
   },
   {
     id: 'set-minutes',
-    title: '1日に使える分を入れる',
-    body: 'ひとつ入れれば、全部の曜日に使われます。\n\nできない曜日は 0 と入れてください。',
+    title: '平日と休日に、使える分を入れる',
+    body: '片方だけでも大丈夫です。\n\n勉強しない日は 0 と入れてください。',
     target: '[data-tour="weekday-grid"]',
     await: 'state',
     hint: '入れると次へ進みます',

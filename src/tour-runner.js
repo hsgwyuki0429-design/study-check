@@ -4,7 +4,7 @@
 // ここは「もう見たか」「その手順は終わったか」を、実際のデータで判断する。
 
 import * as api from './api.js';
-import { WEEKDAY_KEYS, WEEKDAY_LABELS, weekdayKeyOf } from './availability.js';
+import { WEEKDAY_KEYS } from './availability.js';
 import { loadTasks, refreshToday, render } from './state.js';
 import { runAutoPlan } from './auto-plan-runner.js';
 import { startTour, stopTour, isRunning } from './tour.js';
@@ -60,11 +60,12 @@ export async function noteFor(stepId) {
   const tasks = await api.getTodayTasks(api.studyDayKey());
   if (tasks.length) return null;
 
-  const label = WEEKDAY_LABELS[weekdayKeyOf(today)];
   const capacity = await api.availabilityForDay(today);
   if (capacity.available === null) {
-    return `いまは空です。今日は${label}曜日なので、設定 → 学習に使える時間 で`
-      + `「${label}」に分を入れると、ここに並びます。`;
+    return 'いまは空です。設定 → 学習に使える時間 に分を入れると、ここに並びます。';
+  }
+  if (capacity.available === 0) {
+    return '今日は0分にしてあるので、予定を置いていません。';
   }
   return 'いまは空です。目標の範囲と、使える時間を見直してみてください。';
 }

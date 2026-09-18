@@ -4,9 +4,8 @@
 // 画面では「何を・いつまでに・どこまで」と「1日に何分使えるか」を決められればよい。
 
 import * as api from './api.js';
-import {
-  GOAL_COMPLETION_LABELS, GOAL_STATUS_LABELS, WEEKDAY_KEYS, WEEKDAY_LABELS,
-} from './api.js';
+import { GOAL_COMPLETION_LABELS, GOAL_STATUS_LABELS } from './api.js';
+import { WEEKDAY_GROUPS, groupValue } from './availability.js';
 import { state, render } from './state.js';
 import { el, row, fmtDate } from './ui.js';
 
@@ -68,58 +67,65 @@ async function goalForm(list, rerender) {
   deadlineInput.value = draft.deadline;
   deadlineInput.onchange = () => { draft.deadline = deadlineInput.value; };
 
-  const chapterSelect = el('select');
-  chapterSelect.append(new Option('章を選ぶ', ''));
-  chapters.forEach((chapter) => chapterSelect.append(new Option(chapter, chapter)));
-  chapterSelect.value = draft.chapter;
-  chapterSelect.onchange = () => {
-    draft.chapter = chapterSelect.value;
-    draft.sections = [];
-    rerender();
-  };
+  // 章も単元も、いくつでもえらべる。
+  // ひとつずつしか選べないと「この章とこの章」「この章のうち2〜3単元だけ」という、
+  // いちばんよくある決め方ができない。
+  draft.chapters = (draft.chapters ?? []).filter((chapter) => chapters.includes(chapter));
 
-  // 単元は複数えらべる。1つずつしか選べないと、
-  //「この章のうち2〜3単元だけ」という、いちばんよくある決め方ができない。
-  const sectionsOfChapter = draft.chapter
-    ? [...new Set(questions
-      .filter((question) => question.chapter === draft.chapter)
-      .map((question) => question.section))]
-    : [];
-  // 選んだ単元のうち、いまの章にあるものだけを残す（章を変えたときの取りこぼしを防ぐ）。
-  draft.sections = (draft.sections ?? []).filter((section) => sectionsOfChapter.includes(section));
-
-  const sectionBox = el('div', 'section-picker');
-  if (!draft.chapter) {
-    sectionBox.append(el('div', 'row-sub', '先に章を選ぶと、単元をえらべます。'));
-  } else {
+  /** チェックボックスの一覧を1つ作る。 */
+  const pickerOf = (items, selected, onToggle, allLabel) => {
+    const box = el('div', 'section-picker');
     const all = el('label', 'section-choice');
     const allInput = el('input');
     allInput.type = 'checkbox';
-    allInput.checked = draft.sections.length === 0;
-    allInput.onchange = () => {
-      draft.sections = [];
-      rerender();
-    };
-    all.append(allInput, el('span', null, `この章をすべて（${sectionsOfChapter.length}単元）`));
-    sectionBox.append(all);
-
-    for (const section of sectionsOfChapter) {
-      const count = questions.filter((question) => question.section === section
-        && question.chapter === draft.chapter).length;
+    allInput.checked = selected.length === 0;
+    allInput.onchange = () => onToggle([]);
+    all.append(allInput, el('span', null, allLabel));
+    box.append(all);
+    for (const { value, label } of items) {
       const choice = el('label', 'section-choice');
       const input = el('input');
       input.type = 'checkbox';
-      input.checked = draft.sections.includes(section);
-      input.onchange = () => {
-        draft.sections = input.checked
-          ? [...draft.sections, section]
-          : draft.sections.filter((value) => value !== section);
-        rerender();
-      };
-      choice.append(input, el('span', null, `${section}（${count}問）`));
-      sectionBox.append(choice);
+      input.checked = selected.includes(value);
+      input.onchange = () => onToggle(input.checked
+        ? [...selected, value]
+        : selected.filter((entry) => entry !== value));
+      choice.append(input, el('span', null, label));
+      box.append(choice);
     }
-  }
+    return box;
+  };
+
+  const chapterBox = tourTarget('goal-chapters', pickerOf(
+    chapters.map((chapter) => ({
+      value: chapter,
+      label: `${chapter}（${questions.filter((q) => q.chapter === chapter).length}問）`,
+    })),
+    draft.chapters,
+    (next) => { draft.chapters = next; draft.sections = []; rerender(); },
+    `すべての章（${chapters.length}章）`,
+  ));
+
+  // 選んだ章に属する単元だけを出す。章を選んでいなければ、絞る相手がいない。
+  const sectionsOfChapters = draft.chapters.length
+    ? [...new Set(questions
+      .filter((question) => draft.chapters.includes(question.chapter))
+      .map((question) => question.section))]
+    : [];
+  draft.sections = (draft.sections ?? []).filter((section) => sectionsOfChapters.includes(section));
+
+  const sectionBox = tourTarget('goal-sections', sectionsOfChapters.length
+    ? pickerOf(
+      sectionsOfChapters.map((section) => ({
+        value: section,
+        label: `${section}（${questions.filter((q) => q.section === section
+          && draft.chapters.includes(q.chapter)).length}問）`,
+      })),
+      draft.sections,
+      (next) => { draft.sections = next; rerender(); },
+      `選んだ章をすべて（${sectionsOfChapters.length}単元）`,
+    )
+    : el('div', 'row-sub', '章をえらぶと、単元でさらに絞れます。'));
 
   const completionSelect = el('select');
   completionSelect.append(new Option(GOAL_COMPLETION_LABELS.attempt, 'attempt'));
@@ -133,7 +139,7 @@ async function goalForm(list, rerender) {
   prioritySelect.onchange = () => { draft.priority = Number(prioritySelect.value); };
 
   const targets = api.selectQuestions(questions, {
-    chapter: draft.chapter || undefined,
+    chapters: draft.chapters?.length ? draft.chapters : undefined,
     sections: draft.sections?.length ? draft.sections : undefined,
   });
 
@@ -141,7 +147,8 @@ async function goalForm(list, rerender) {
   form.append(
     el('div', 'row-sub', '目標の内容'), titleInput,
     el('div', 'row-sub', '期限（空なら期限なし）'), deadlineInput,
-    el('div', 'row-sub', '対象の範囲'), chapterSelect, sectionBox,
+    el('div', 'row-sub', '対象の章'), chapterBox,
+    el('div', 'row-sub', '単元でさらに絞る'), sectionBox,
     el('div', 'row-sub', `対象 ${targets.length}問（いま選んでいる範囲の問題が、作成時に確定します）`),
     el('div', 'row-sub', '達成条件'), completionSelect,
     el('div', 'row-sub', '「習得する」は、この目標に結び付いた最新の取り組みが ◯完璧にできた であれば達成とします。'),
@@ -161,7 +168,7 @@ async function goalForm(list, rerender) {
       await api.addGoal({
         title: draft.title.trim(),
         deadline: draft.deadline,
-        scope: [draft.chapter, ...(draft.sections ?? [])].filter(Boolean).join(' / '),
+        scope: [...(draft.chapters ?? []), ...(draft.sections ?? [])].join(' / '),
         questionIds: targets.map((question) => question.id),
         completion: draft.completionType === 'mastery'
           ? { type: 'mastery', evaluations: ['perfect'], mode: 'latest' }
@@ -222,7 +229,7 @@ export async function renderGoalCard(list, rerender) {
   } else {
     const actions = el('div', 'setting-actions');
     actions.append(tourTarget('goal-add', button('目標を追加', () => {
-      newGoal = { title: '', deadline: '', chapter: '', sections: [], completionType: 'attempt', priority: 3 };
+      newGoal = { title: '', deadline: '', chapters: [], sections: [], completionType: 'attempt', priority: 3 };
       rerender();
     })));
     list.append(actions);
@@ -240,93 +247,36 @@ export async function renderAvailabilityCard(list, rerender) {
   const plannedToday = await api.plannedMinutesFor(today);
 
   list.append(el('div', 'section-head', '学習に使える時間'));
-  list.append(row({
-    title: `今日: 予定 ${plannedToday}分 ／ 使える ${todayInfo.available === null ? '未設定' : `${todayInfo.available}分`}`,
-    sub: todayInfo.note,
-    classes: ['row-indent'],
-  }));
 
-  // 曜日別の標準。
   const grid = el('div', 'weekday-grid');
-  for (const key of WEEKDAY_KEYS) {
+  for (const group of WEEKDAY_GROUPS) {
     const cell = el('label', 'weekday-cell');
-    cell.append(el('span', 'weekday-name', WEEKDAY_LABELS[key]));
-    cell.append(minutesInput(availability.weekly[key], async (value) => {
-      await api.saveAvailability({ weekly: { [key]: value } });
+    cell.append(el('span', 'weekday-name', group.label));
+    cell.append(minutesInput(groupValue(availability.weekly, group.days), async (value) => {
+      // その群の曜日をまとめて書き換える。
+      await api.saveAvailability({
+        weekly: Object.fromEntries(group.days.map((day) => [day, value])),
+      });
       rerender();
     }));
     grid.append(cell);
   }
-  // ひとつだけ入れたときは、それが全部の曜日に使われる。
-  // 7つ全部を書かせるのは手間なだけなので、まず1つでよいことを先に書く。
-  const filled = WEEKDAY_KEYS.filter((key) => availability.weekly[key] !== null);
-  list.append(el('div', 'row-sub row-indent',
-    filled.length === 1
-      ? `${WEEKDAY_LABELS[filled[0]]}に入れた${availability.weekly[filled[0]]}分を、全部の曜日で使っています。`
-        + ' 曜日ごとに変えたいときは、ほかの曜日にも入れてください。'
-      : filled.length === 0
-        ? '1日に使える分（分）。どれかひとつ入れれば、全部の曜日でその値を使います。'
-          + ' 勉強できない曜日は 0 と入れてください。'
-        : '曜日ごとの標準（分）。空欄は「未設定」で、その日には予定を置きません。'
-          + ' 勉強できない曜日は 0 と入れてください。'));
   list.append(tourTarget('weekday-grid', grid));
 
-  // 今日の残り。
-  const remaining = availability.todayRemaining && availability.todayRemaining.date === today
-    ? availability.todayRemaining.minutes
-    : null;
-  const remainingRow = el('div', 'setting-actions');
-  remainingRow.append(el('span', 'row-sub', '今日はあと'));
-  remainingRow.append(minutesInput(remaining, async (value) => {
-    await api.saveAvailability({
-      todayRemaining: value === null ? null : { date: today, minutes: value, setAt: new Date().toISOString() },
-    });
-    rerender();
-  }, { placeholder: '分' }));
-  remainingRow.append(el('span', 'row-sub', '分'));
-  if (remaining !== null) {
-    remainingRow.append(button('取り消す', async () => {
-      await api.saveAvailability({ todayRemaining: null });
-      rerender();
-    }, 'link-btn'));
-  }
-  list.append(remainingRow);
-  list.append(el('div', 'row-sub row-indent', 'ここを入れると、その日はこの値が優先されます（実施済みの時間は引かれません）。'));
-
-  // 今日・明日を0分にする（例外日の最小限の操作）。
-  const tomorrow = api.todayKey(new Date(Date.now() + 86400000));
-  const exceptions = el('div', 'setting-actions');
-  for (const [date, label] of [[today, '今日'], [tomorrow, '明日']]) {
-    const isZero = availability.overrides[date] === 0;
-    exceptions.append(button(isZero ? `${label}の0分をやめる` : `${label}は0分にする`, async () => {
-      await api.saveAvailability({ overrides: { [date]: isZero ? null : 0 } });
-      rerender();
-    }, 'link-btn'));
-  }
-  list.append(exceptions);
-
-  // 予備時間と答え合わせの扱い。
-  const reserveRow = el('div', 'setting-actions');
-  reserveRow.append(el('span', 'row-sub', '予備として空ける'));
-  reserveRow.append(minutesInput(availability.reserveMinutes, async (value) => {
-    await api.saveAvailability({ reserveMinutes: value ?? 0 });
-    rerender();
-  }, { placeholder: '0' }));
-  reserveRow.append(el('span', 'row-sub', '分（1日につき1回だけ引かれます）'));
-  list.append(reserveRow);
+  const weekdayValue = groupValue(availability.weekly, WEEKDAY_GROUPS[0].days);
+  const holidayValue = groupValue(availability.weekly, WEEKDAY_GROUPS[1].days);
+  list.append(el('div', 'row-sub row-indent',
+    weekdayValue === null && holidayValue === null
+      ? '1日に使える分を入れてください。片方だけでも、もう片方に同じ値を使います。'
+      : weekdayValue !== null && holidayValue === null
+        ? `休日も平日と同じ${weekdayValue}分として扱います。違うなら休日にも入れてください。`
+        : weekdayValue === null && holidayValue !== null
+          ? `平日も休日と同じ${holidayValue}分として扱います。違うなら平日にも入れてください。`
+          : '勉強しない日は 0 と入れてください。空欄は「未設定」で、その日には予定を置きません。'));
 
   list.append(row({
-    title: 'タイマーは答え合わせまで含む',
-    sub: availability.timerIncludesReview
-      ? '含む扱いです（タイマーは問題を始めてから評価を記録するまで動きます）。見積もりに答え合わせ時間を足しません。'
-      : `含まない扱いです。1問につき${Math.round(availability.reviewOverheadSeconds / 60)}分を見積もりに足します。`,
-    right: button(availability.timerIncludesReview ? '含まないに変える' : '含むに変える', async () => {
-      await api.saveAvailability({
-        timerIncludesReview: !availability.timerIncludesReview,
-        reviewOverheadSeconds: availability.timerIncludesReview ? Math.max(60, availability.reviewOverheadSeconds) : 0,
-      });
-      rerender();
-    }, 'link-btn'),
+    title: `今日: 予定 ${plannedToday}分 ／ 使える ${todayInfo.available === null ? '未設定' : `${todayInfo.available}分`}`,
+    sub: todayInfo.note,
     classes: ['row-indent'],
   }));
 }

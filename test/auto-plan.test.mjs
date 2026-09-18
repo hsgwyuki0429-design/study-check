@@ -47,11 +47,6 @@ const estimateEvery = (minutes, confidence = "high") =>
 /** 平日も休日も同じ分数が使える設定。 */
 const availabilityOf = (minutes) => ({
   weekly: { sun: minutes, mon: minutes, tue: minutes, wed: minutes, thu: minutes, fri: minutes, sat: minutes },
-  overrides: {},
-  todayRemaining: null,
-  reserveMinutes: 0,
-  timerIncludesReview: true,
-  reviewOverheadSeconds: 0,
 });
 
 const base = (overrides = {}) => ({
@@ -257,8 +252,8 @@ test("自動で置いた予定のうち、要らなくなったものだけを�
 
 test("使える時間が未設定の日には、何も置かない", () => {
   const availability = availabilityOf(60);
-  availability.overrides = { "2026-09-15": null };
-  availability.weekly.tue = null; // 2026-09-15 は火曜
+  availability.weekly.tue = null;   // 2026-09-15 は火曜
+  availability.weekly.wed = 90;     // 値が2種類になるので、火曜は借りてこない
   const plan = buildAutoPlan(base({ availability }));
   const day = plan.days.find((entry) => entry.date === "2026-09-15");
   assert.equal(day.skipped, "not_configured");
@@ -267,10 +262,11 @@ test("使える時間が未設定の日には、何も置かない", () => {
 
 test("0分と決めた日にも置かない（未設定とは別もの）", () => {
   const availability = availabilityOf(60);
-  availability.overrides = { "2026-09-15": 0 };
+  availability.weekly.tue = 0;   // 2026-09-15 は火曜
   const plan = buildAutoPlan(base({ availability }));
   const day = plan.days.find((entry) => entry.date === "2026-09-15");
   assert.equal(day.capacity.available, 0);
+  assert.equal(day.capacity.configured, true, "0分が未設定になっている");
   assert.deepEqual(day.items, []);
 });
 

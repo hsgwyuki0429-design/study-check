@@ -9,7 +9,7 @@
 // operationId を受け持つ。実際に IndexedDB へ書くのは auto-plan-runner.js。
 //
 // 守ること:
-//   ・いま解いているタスク、完了したタスク、固定したタスクは変えない
+//   ・いま解いているタスク、完了したタスクは変えない
 //   ・利用者が自分で入れた予定は、自動では消さない
 //   ・過去の日付は書き換えない（記録は事実なので、あとから予定を足さない）
 //   ・同じ案が二度実行されても、二重には当たらない
@@ -20,7 +20,7 @@ import { AUTO_SOURCE } from './auto-plan.js';
 export const REJECT_REASONS = Object.freeze({
   past_date: '過ぎた日の予定は変えません',
   not_found: 'その予定が見つかりません',
-  locked: '完了・固定・実行中の予定は変えません',
+  locked: '完了・実行中の予定は変えません',
   user_owned: '利用者が入れた予定は自動では消しません',
   already_done: 'すでに取り組んだ予定は動かせません',
   duplicate: 'その日にもう同じ問題が入っています',

@@ -156,7 +156,7 @@ test("目標と使える時間を決めると、自動スケジュールが今�
   await context.close();
 });
 
-test("固定した予定は、自動スケジュールでも動かない", options, async () => {
+test("自分で入れた予定は、自動スケジュールでも動かない", options, async () => {
   const { page, context, errors } = await openApp();
 
   const result = await page.evaluate(async () => {
@@ -164,7 +164,7 @@ test("固定した予定は、自動スケジュールでも動かない", optio
     const runner = await import("./src/auto-plan-runner.js");
 
     const questions = await api.listQuestions();
-    // 掲載順ではずっと後ろの問題を、自分で今日の予定に入れて固定する。
+    // 掲載順ではずっと後ろの問題を、自分で今日の予定に入れる。
     const mine = questions[questions.length - 1];
     await api.updateTodayTasks(
       [{ id: "task-mine", kind: "new", questionIds: [mine.id], order: 0, pinned: true }],
@@ -187,13 +187,13 @@ test("固定した予定は、自動スケジュールでも動かない", optio
     };
   });
 
-  assert.equal(result.keptMine, true, "固定した予定が消された");
-  assert.ok(result.total > 1, "固定した予定のほかに何も置かれていない");
+  assert.equal(result.keptMine, true, "自分で入れた予定が消された");
+  assert.ok(result.total > 1, "自分の予定のほかに何も置かれていない");
   assert.deepEqual(errors, []);
   await context.close();
 });
 
-test("設定タブの「自動スケジュール」を開くと、今日の案と理由が出る", options, async () => {
+test("設定タブの「自動スケジュール」は、操作だけが並ぶ", options, async () => {
   const { page, context, errors } = await openApp();
 
   await page.evaluate(async () => {
@@ -210,10 +210,15 @@ test("設定タブの「自動スケジュール」を開くと、今日の案�
   await page.locator(".section-body").waitFor();
 
   const body = page.locator(".section-body");
-  await body.locator("text=今日の理由").waitFor({ timeout: 10000 });
-  await body.locator("text=習得フェーズ").waitFor();
-  // 押す前に「こうなります」が見えている（企画書17章）。
-  await body.locator("button", { hasText: "今すぐ組み直す" }).waitFor();
+  await body.locator("button", { hasText: "今すぐ組み直す" }).waitFor({ timeout: 10000 });
+  await body.locator("text=アプリを開いたときに組み直す").waitFor();
+
+  // 予定の中身は、スケジュールタブとホームで見える。ここでは繰り返さない。
+  const text = await body.innerText();
+  for (const noise of ["いまの段階", "今日の理由", "何をしているか", "何日先まで置くか",
+    "変えないもの", "変えなかったもの", "前回"]) {
+    assert.equal(text.includes(noise), false, `設定に「${noise}」が残っている`);
+  }
 
   assert.deepEqual(errors, []);
   await context.close();
